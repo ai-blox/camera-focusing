@@ -54,8 +54,13 @@ def tegrastats_updater(ip: str, stop_event: threading.Event):
 
 
 def fetch_dmesg(ip: str):
-    """Fetch last 40 dmesg lines remotely, preventing SSH hang by closing stdin."""
-    cmd = ["ssh", *SSH_OPTS, f"root@{ip}", "dmesg -T | tail -n 40"]
+    """Fetch all dmesg lines remotely, count totals, and return the tails."""
+    cmd = ["ssh", *SSH_OPTS, f"root@{ip}", "dmesg -T"]
+    
+    def generate_error_payload(msg):
+        err = [{"ts": "", "text": msg, "level": "error"}]
+        return {"all_lines": err, "ew_lines": err, "total_errors": 1, "total_warns": 0}
+
     try:
         result = subprocess.run(
             cmd, 
@@ -66,16 +71,22 @@ def fetch_dmesg(ip: str):
         )
         
         if result.returncode != 0:
-            return [{"ts": "", "text": f"SSH Error: {result.stderr.strip()}", "level": "error"}]
+            return generate_error_payload(f"SSH Error: {result.stderr.strip()}")
 
-        lines = []
+        all_lines = []
+        ew_lines = []
+        total_errors = 0
+        total_warns = 0
+
         for line in result.stdout.strip().splitlines():
             level = "info"
             low = line.lower()
             if "error" in low or "fail" in low or "critical" in low:
                 level = "error"
+                total_errors += 1
             elif "warn" in low:
                 level = "warn"
+                total_warns += 1
             
             # Parse timestamp: [Wed Apr 15 08:42:24 2026] Message...
             m = re.match(r'^\[(.*?)\]\s+(.*)', line)
@@ -98,13 +109,23 @@ def fetch_dmesg(ip: str):
                 ts = ""
                 msg = line
 
-            lines.append({"ts": ts, "text": msg, "level": level})
+            parsed_obj = {"ts": ts, "text": msg, "level": level}
+            all_lines.append(parsed_obj)
             
-        return lines[-30:]
+            if level in ["error", "warn"]:
+                ew_lines.append(parsed_obj)
+            
+        return {
+            "all_lines": all_lines[-30:],
+            "ew_lines": ew_lines[-30:],
+            "total_errors": total_errors,
+            "total_warns": total_warns
+        }
+
     except subprocess.TimeoutExpired:
-        return [{"ts": "", "text": "Failed to fetch dmesg: Connection timed out.", "level": "error"}]
+        return generate_error_payload("Failed to fetch dmesg: Connection timed out.")
     except Exception as e:
-        return [{"ts": "", "text": f"Failed to fetch dmesg: {str(e)}", "level": "error"}]
+        return generate_error_payload(f"Failed to fetch dmesg: {str(e)}")
 
 
 def generate_frames(ip: str):
@@ -321,7 +342,6 @@ def index():
 
     .main {
       display: grid;
-      /* Increased log column width to 600px */
       grid-template-columns: 1fr 600px;
       gap: 0;
       height: calc(100vh - 130px);
@@ -408,6 +428,19 @@ def index():
       background: var(--surface);
     }
 
+    .panel-subheader {
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      font-family: var(--mono);
+      font-size: 15px;
+      letter-spacing: 2px;
+      color: var(--accent);
+      text-transform: uppercase;
+      font-weight: bold;
+    }
+
     .panel-title {
       font-family: var(--mono);
       font-size: 15px;
@@ -429,18 +462,19 @@ def index():
     }
     .btn-refresh:hover { border-color: var(--accent); color: var(--accent); }
 
-    #dmesgLog {
+    .log-container {
       flex: 1;
       overflow-y: auto;
       padding: 12px 0;
       font-family: var(--mono);
       font-size: 13px;
       line-height: 1.6;
+      min-height: 0; /* Important for flex-basis halving */
     }
 
-    #dmesgLog::-webkit-scrollbar { width: 6px; }
-    #dmesgLog::-webkit-scrollbar-track { background: var(--bg); }
-    #dmesgLog::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .log-container::-webkit-scrollbar { width: 6px; }
+    .log-container::-webkit-scrollbar-track { background: var(--bg); }
+    .log-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
     .log-line {
       padding: 6px 18px;
@@ -449,7 +483,6 @@ def index():
       word-wrap: break-word;
     }
     
-    /* Bumped up opacity and added !important to guarantee striping is visible */
     .log-line:nth-child(even) { background-color: rgba(255, 255, 255, 0.06) !important; }
     .log-line:hover { background-color: rgba(255, 255, 255, 0.09) !important; }
     
@@ -530,6 +563,14 @@ def index():
         <div class="s-val" id="uptimeVal">—</div>
       </div>
       <div class="stat-item">
+        <div class="s-label">Warnings</div>
+        <div class="s-val" id="warnVal" style="color: var(--warn);">—</div>
+      </div>
+      <div class="stat-item">
+        <div class="s-label">Errors</div>
+        <div class="s-val" id="errVal" style="color: var(--err);">—</div>
+      </div>
+      <div class="stat-item">
         <div class="s-label">Stream started</div>
         <div class="s-val" id="startedVal" style="font-size:16px; color:var(--muted);">—</div>
       </div>
@@ -541,9 +582,17 @@ def index():
       <div class="panel-title">Diagnostic Messages</div>
       <button class="btn-refresh" id="dmesgRefreshBtn" onclick="refreshDmesg()" disabled>↻ Refresh</button>
     </div>
-    <div id="dmesgLog">
+    <div id="dmesgLog" class="log-container">
       <div class="no-dmesg">Start a stream to see diagnostic messages.</div>
     </div>
+    
+    <div class="panel-subheader">
+      Errors & Warnings
+    </div>
+    <div id="dmesgEWLog" class="log-container">
+      <div class="no-dmesg">Start a stream to see errors and warnings.</div>
+    </div>
+
     <div class="dmesg-footer" id="dmesgFooter">—</div>
   </div>
 
@@ -556,10 +605,13 @@ def index():
   const ipInput      = document.getElementById("ipInput");
   const fpsVal       = document.getElementById("fpsVal");
   const uptimeVal    = document.getElementById("uptimeVal");
+  const warnVal      = document.getElementById("warnVal");
+  const errVal       = document.getElementById("errVal");
   const startedVal   = document.getElementById("startedVal");
   const vddVal       = document.getElementById("vddVal");
   const tjVal        = document.getElementById("tjVal");
   const dmesgLog     = document.getElementById("dmesgLog");
+  const dmesgEWLog   = document.getElementById("dmesgEWLog");
   const dmesgFooter  = document.getElementById("dmesgFooter");
   const liveDot      = document.getElementById("liveDot");
   const headerStatus = document.getElementById("headerStatus");
@@ -619,25 +671,31 @@ def index():
     try {
       const r    = await fetch(`/dmesg?ip=${encodeURIComponent(currentIp)}`);
       const data = await r.json();
-      renderDmesg(data.lines);
+      
+      renderDmesg(dmesgLog, data.all_lines);
+      renderDmesg(dmesgEWLog, data.ew_lines);
+      
+      warnVal.textContent = data.total_warns !== undefined ? data.total_warns : "—";
+      errVal.textContent  = data.total_errors !== undefined ? data.total_errors : "—";
+      
       dmesgFooter.textContent = `Last updated: ${new Date().toLocaleTimeString()}`;
     } catch(e) {
       dmesgFooter.textContent = "Fetch failed.";
     }
   }
 
-  function renderDmesg(lines) {
+  function renderDmesg(element, lines) {
     if (!lines || lines.length === 0) {
-      dmesgLog.innerHTML = '<div class="no-dmesg">No messages.</div>';
+      element.innerHTML = '<div class="no-dmesg">No messages.</div>';
       return;
     }
     
-    dmesgLog.innerHTML = lines.map(l => {
+    element.innerHTML = lines.map(l => {
       const tsHtml = l.ts ? `<span class="ts">${escHtml(l.ts)}</span>` : "";
       return `<div class="log-line ${l.level}">${tsHtml} <span class="msg">${escHtml(l.text)}</span></div>`;
     }).join("");
     
-    dmesgLog.scrollTop = dmesgLog.scrollHeight;
+    element.scrollTop = element.scrollHeight;
   }
 
   function escHtml(s) {
@@ -690,8 +748,11 @@ def index():
     stopBtn.disabled  = true;
     ipInput.disabled  = false;
     dmesgRefreshBtn.disabled = true;
+    
     fpsVal.textContent    = "—";
     uptimeVal.textContent = "—";
+    warnVal.textContent   = "—";
+    errVal.textContent    = "—";
     startedVal.textContent = "—";
     currentIp = null;
 
@@ -743,8 +804,8 @@ def get_tegrastats():
 @app.route("/dmesg")
 def get_dmesg():
     ip = request.args.get("ip", "")
-    lines = fetch_dmesg(ip)
-    return jsonify({"lines": lines})
+    data = fetch_dmesg(ip)
+    return jsonify(data)
 
 
 if __name__ == "__main__":
