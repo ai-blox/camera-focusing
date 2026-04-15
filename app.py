@@ -3,6 +3,8 @@ import subprocess
 import numpy as np
 import cv2
 import threading
+import socket
+import platform
 
 app = Flask(__name__)
 
@@ -12,6 +14,78 @@ stream_error = None
 zoom_offset_x = 0
 zoom_offset_y = 0
 
+CAMERA_HOSTNAME = "aibp0046-p3767-0003"
+
+# Shared SSH options to bypass host key mismatch errors
+SSH_OPTS = [
+    "-o", "StrictHostKeyChecking=no",
+    "-o", "UserKnownHostsFile=/dev/null",
+    "-o", "LogLevel=ERROR",         # suppress the "Warning: Permanently added..." noise
+    "-o", "ConnectTimeout=5",
+]
+
+
+def resolve_hostname_to_ips(hostname: str) -> list[str]:
+    """
+    Resolve a hostname to all of its IPv4 addresses.
+    Returns a (possibly empty) list of unique IP strings.
+    """
+    try:
+        results = socket.getaddrinfo(hostname, None)
+        ips = list({r[4][0] for r in results if ":" not in r[4][0]})  # IPv4 only
+        return sorted(ips)
+    except socket.gaierror:
+        return []
+
+
+def ping_ip(ip: str) -> bool:
+    """
+    Ping a single IP once. Returns True if the host responds.
+    Works on both Windows (ping -n 1 -w 1000) and Linux/macOS (ping -c 1 -W 1).
+    """
+    system = platform.system().lower()
+    if system == "windows":
+        cmd = ["ping", "-n", "1", "-w", "1000", ip]
+    else:
+        cmd = ["ping", "-c", "1", "-W", "1", ip]
+
+    try:
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=3,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def scan_for_cameras(hostname: str = CAMERA_HOSTNAME) -> list[dict]:
+    """
+    Resolve the well-known camera hostname and ping every resolved IP in parallel.
+    Returns a list of dicts: [{"ip": "...", "hostname": "..."}]
+    """
+    ips = resolve_hostname_to_ips(hostname)
+    if not ips:
+        return []
+
+    found = []
+    lock = threading.Lock()
+
+    def check(ip):
+        if ping_ip(ip):
+            with lock:
+                found.append({"ip": ip, "hostname": hostname})
+
+    threads = [threading.Thread(target=check, args=(ip,), daemon=True) for ip in ips]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(timeout=4)
+
+    return found
+
 
 def generate_frames(ip: str):
     global current_score, current_zoom, stream_error, zoom_offset_x, zoom_offset_y
@@ -20,7 +94,7 @@ def generate_frames(ip: str):
     FRAME_SIZE = WIDTH * HEIGHT * 2
 
     cmd = [
-        "ssh", f"root@{ip}",
+        "ssh", *SSH_OPTS, f"root@{ip}",
         f"v4l2-ctl -d /dev/video1 --set-fmt-video=width={WIDTH},height={HEIGHT},pixelformat=UYVY --stream-mmap --stream-to=-"
     ]
 
@@ -104,7 +178,7 @@ def generate_frames(ip: str):
 
 @app.route("/")
 def index():
-    return """
+    return r"""
 <!DOCTYPE html>
 <html>
 <head>
@@ -217,6 +291,58 @@ def index():
     .info-banner .banner-msg  { font-size: 20px; font-weight: bold; }
     .info-banner .banner-sub  { color: #aaa; font-size: 14px; }
 
+    /* ── Network scan UI ─────────────────────────────────────────────────── */
+    #scanStatus {
+      margin-top: 14px;
+      font-size: 13px;
+      color: #aaa;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 22px;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid #666;
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #cameraList {
+      margin-top: 10px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .camera-chip {
+      background: #3a3a3a;
+      border: 1px solid #555;
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .camera-chip:hover {
+      background: #28a745;
+      border-color: #28a745;
+      color: #fff;
+    }
+    .camera-chip .chip-ip       { font-weight: bold; }
+    .camera-chip .chip-hostname { color: #aaa; font-size: 12px; }
+    .camera-chip:hover .chip-hostname { color: #d0ffd0; }
+
+    /* ── Drag / reset overlay ────────────────────────────────────────────── */
     #drag-overlay {
       display: none;
       position: absolute;
@@ -267,7 +393,7 @@ def index():
   <div class="control-panel">
     <div class="group">
       <label for="ipInput">IP:</label>
-      <input type="text" id="ipInput" value="192.168.7.216" placeholder="192.168.x.x">
+      <input type="text" id="ipInput" value="" placeholder="192.168.x.x">
     </div>
 
     <div class="group">
@@ -277,39 +403,41 @@ def index():
     </div>
 
     <div class="group" style="border-right: none;">
-      <button id="startBtn" onclick="startStream()">▶ Start Stream</button>
-      <button id="stopBtn"  onclick="stopStream()" disabled>⏸ Stop Stream</button>
+      <button id="startBtn" onclick="startStream()">&#9654; Start Stream</button>
+      <button id="stopBtn"  onclick="stopStream()" disabled>&#9646;&#9646; Stop Stream</button>
     </div>
 
-    <button id="powerBtn" onclick="powerOffCamera()">⏻ Power OFF Camera</button>
+    <button id="powerBtn" onclick="powerOffCamera()">&#9211; Power OFF Camera</button>
   </div>
 
   <div id="feed-container" class="offline-state">
 
     <!-- Offline banner (shown on load and after stop) -->
     <div id="offlineBanner" class="info-banner" style="display:flex;">
-      <span class="banner-icon">🎥</span>
+      <span class="banner-icon">&#127909;</span>
       <span class="banner-msg" style="color:#ffffff;">Stream Offline</span>
-      <span class="banner-sub">Enter an IP address and click Start.</span>
+      <span class="banner-sub">Enter an IP address and click Start, or select a discovered camera below.</span>
+      <div id="scanStatus"></div>
+      <div id="cameraList"></div>
     </div>
 
     <!-- No-signal banner -->
     <div id="errorBanner" class="info-banner">
-      <span class="banner-icon">📡</span>
+      <span class="banner-icon">&#128225;</span>
       <span class="banner-msg" style="color:#ff6b6b;">No Signal</span>
       <span class="banner-sub" id="errorDetail">Could not connect to camera. Check the IP address and try again.</span>
     </div>
 
     <!-- Powered-off banner -->
     <div id="poweredOffBanner" class="info-banner">
-      <span class="banner-icon">⏻</span>
+      <span class="banner-icon">&#9211;</span>
       <span class="banner-msg" style="color:#aaa;">Powered OFF</span>
       <span class="banner-sub" id="poweredOffDetail">The remote device has been shut down.</span>
     </div>
 
     <img id="image" draggable="false" />
     <div id="drag-overlay"></div>
-    <button id="resetOffsetBtn" onclick="resetOffset()">⌖ Re-centre</button>
+    <button id="resetOffsetBtn" onclick="resetOffset()">&#8859; Re-centre</button>
   </div>
 
   <div class="score-container" id="scoreContainer">
@@ -334,10 +462,16 @@ def index():
     const poweredOffDetail = document.getElementById("poweredOffDetail");
     const dragOverlay      = document.getElementById("drag-overlay");
     const resetOffsetBtn   = document.getElementById("resetOffsetBtn");
+    const scanStatus       = document.getElementById("scanStatus");
+    const cameraList       = document.getElementById("cameraList");
 
-    let scoreInterval  = null;
-    let errorPollTimer = null;
+    let scoreInterval   = null;
+    let errorPollTimer  = null;
+    let scanInterval    = null;
+    let scanInProgress  = false;
+
     const MAX_EXPECTED_SCORE = 4000.0;
+    const SCAN_INTERVAL_MS   = 10_000;   // re-scan every 10 s while offline
 
     // ── Banner helpers ────────────────────────────────────────────────────────
     function hideAllBanners() {
@@ -351,9 +485,11 @@ def index():
       hideAllBanners();
       offlineBanner.style.display = "flex";
       feedContainer.classList.add("offline-state");
+      startNetworkScan();   // kick off a scan right away
     }
 
     function showError(detail) {
+      stopNetworkScan();
       hideAllBanners();
       errorBanner.style.display = "flex";
       errorDetail.textContent   = detail || "Could not connect to camera. Check the IP address and try again.";
@@ -364,10 +500,10 @@ def index():
       startBtn.disabled = false;
       stopBtn.disabled  = true;
       ipInput.disabled  = false;
-      // Intervals are already cleared by the time showError is called from the poller
     }
 
     function showPoweredOff(ip) {
+      stopNetworkScan();
       hideAllBanners();
       poweredOffBanner.style.display = "flex";
       poweredOffDetail.textContent   = `${ip} has been shut down. It is safe to swap hardware.`;
@@ -379,6 +515,59 @@ def index():
       startBtn.disabled = false;
       stopBtn.disabled  = true;
       ipInput.disabled  = false;
+    }
+
+    // ── Network scan ──────────────────────────────────────────────────────────
+    function startNetworkScan() {
+      runScan();
+      if (!scanInterval) {
+        scanInterval = setInterval(runScan, SCAN_INTERVAL_MS);
+      }
+    }
+
+    function stopNetworkScan() {
+      if (scanInterval) { clearInterval(scanInterval); scanInterval = null; }
+      scanInProgress = false;
+      scanStatus.innerHTML = "";
+      cameraList.innerHTML = "";
+    }
+
+    async function runScan() {
+      if (scanInProgress) return;
+      scanInProgress = true;
+      scanStatus.innerHTML = '<span class="spinner"></span> Scanning network for cameras&hellip;';
+      cameraList.innerHTML = "";
+
+      try {
+        const r    = await fetch("/scan_cameras");
+        const data = await r.json();
+
+        if (data.cameras && data.cameras.length > 0) {
+          scanStatus.innerHTML = `&#10003; Found ${data.cameras.length} camera${data.cameras.length > 1 ? "s" : ""}`;
+          cameraList.innerHTML = "";
+          data.cameras.forEach(cam => {
+            const chip = document.createElement("div");
+            chip.className = "camera-chip";
+            chip.title     = `Click to use ${cam.ip}`;
+            chip.innerHTML = `<span class="chip-ip">&#128247; ${cam.ip}</span>
+                              <span class="chip-hostname">${cam.hostname}</span>`;
+            chip.addEventListener("click", () => {
+              ipInput.value = cam.ip;
+              // Briefly highlight the IP input so the user sees it was filled
+              ipInput.style.borderColor = "#28a745";
+              setTimeout(() => { ipInput.style.borderColor = ""; }, 1200);
+            });
+            cameraList.appendChild(chip);
+          });
+        } else {
+          scanStatus.innerHTML = "&#128270; No cameras found &mdash; retrying in 10s";
+          cameraList.innerHTML = "";
+        }
+      } catch(e) {
+        scanStatus.innerHTML = "&#9888; Scan failed &mdash; retrying in 10s";
+      } finally {
+        scanInProgress = false;
+      }
     }
 
     // ── Drag logic ────────────────────────────────────────────────────────────
@@ -434,9 +623,9 @@ def index():
 
     async function sendOffset() {
       try {
-        await fetch('/set_offset', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        await fetch("/set_offset", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ox: offsetX, oy: offsetY })
         });
       } catch(e) { console.error("Failed to send offset"); }
@@ -447,6 +636,7 @@ def index():
       const ip = ipInput.value.trim();
       if (!ip) { alert("Please enter an IP address."); return; }
 
+      stopNetworkScan();          // no need to scan while a stream is active
       hideAllBanners();
       img.src = `/video_feed?ip=${encodeURIComponent(ip)}`;
       img.style.display            = "block";
@@ -460,7 +650,7 @@ def index():
       scoreInterval = setInterval(fetchScore, 150);
       errorPollTimer = setInterval(async () => {
         try {
-          const r    = await fetch('/stream_error');
+          const r    = await fetch("/stream_error");
           const data = await r.json();
           if (data.error === "no_signal") {
             clearInterval(scoreInterval);
@@ -482,9 +672,7 @@ def index():
     }
 
     function stopStream() {
-      // PREVENT RACE CONDITION: Remove the error listener
-      img.onerror = null; 
-
+      img.onerror = null;
       img.src = "";
       img.style.display            = "none";
       dragOverlay.style.display    = "none";
@@ -502,9 +690,9 @@ def index():
     async function updateZoom(value) {
       zoomLabel.textContent = parseFloat(value).toFixed(2) + "x";
       try {
-        await fetch('/set_zoom', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        await fetch("/set_zoom", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ zoom: value })
         });
       } catch(e) { console.error("Failed to update zoom on server."); }
@@ -512,7 +700,7 @@ def index():
 
     async function fetchScore() {
       try {
-        const response = await fetch('/score');
+        const response = await fetch("/score");
         const data     = await response.json();
         const score    = data.score;
         if (score === 0) {
@@ -530,11 +718,7 @@ def index():
       if (!confirm("Are you sure you want to power down the remote device? This will run 'shutdown -h now'.")) return;
 
       const ip = ipInput.value.trim();
-
-      // PREVENT RACE CONDITION: Remove the error listener before killing the stream
       img.onerror = null;
-
-      // Tear down the stream manually so stopStream() doesn't call showOffline()
       img.src = "";
       img.style.display            = "none";
       dragOverlay.style.display    = "none";
@@ -545,16 +729,15 @@ def index():
       stopBtn.disabled  = true;
       ipInput.disabled  = false;
 
-      // Clear intervals BEFORE showing powered-off so the poller can't overwrite it
       if (scoreInterval)  { clearInterval(scoreInterval);  scoreInterval  = null; }
       if (errorPollTimer) { clearInterval(errorPollTimer); errorPollTimer = null; }
 
       showPoweredOff(ip);
 
       try {
-        const res  = await fetch('/power_off', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const res  = await fetch("/power_off", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ ip })
         });
         const data = await res.json();
@@ -563,6 +746,9 @@ def index():
         poweredOffDetail.textContent = "Failed to send shutdown command.";
       }
     }
+
+    // ── Init: show offline banner (which triggers the first scan) ─────────────
+    showOffline();
   </script>
 </body>
 </html>
@@ -583,6 +769,17 @@ def get_score():
 @app.route("/stream_error")
 def get_stream_error():
     return jsonify({"error": stream_error})
+
+
+@app.route("/scan_cameras")
+def scan_cameras():
+    """
+    Resolve the well-known camera hostname and ping all resolved IPs.
+    Runs the work on a background thread so the main thread never blocks,
+    but we still wait for results before replying (the scan is fast).
+    """
+    cameras = scan_for_cameras(CAMERA_HOSTNAME)
+    return jsonify({"cameras": cameras})
 
 
 @app.route("/set_zoom", methods=["POST"])
@@ -617,7 +814,7 @@ def power_off():
     ip = request.json.get("ip")
     if not ip:
         return jsonify({"status": "error", "message": "No IP provided"}), 400
-    cmd = ["ssh", f"root@{ip}", "shutdown -h now"]
+    cmd = ["ssh", *SSH_OPTS, f"root@{ip}", "shutdown -h now"]
     try:
         subprocess.run(cmd, timeout=10)
         return jsonify({"status": "success", "message": f"Shutdown command sent to {ip}. Device is powering off."})
