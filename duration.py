@@ -6,6 +6,7 @@ import threading
 import re
 import time
 from datetime import datetime, timedelta
+import queue
 
 app = Flask(__name__)
 
@@ -129,69 +130,92 @@ def fetch_dmesg(ip: str):
 
 
 def generate_frames(ip: str):
-    global current_fps, stream_error, stream_start_time
+  global current_fps, stream_error, stream_start_time
 
-    WIDTH, HEIGHT = 1920, 1080
-    FRAME_SIZE = WIDTH * HEIGHT * 2
+  WIDTH, HEIGHT = 1920, 1080
+  FRAME_SIZE = WIDTH * HEIGHT * 2
 
-    cmd = [
-        "ssh", *SSH_OPTS, f"root@{ip}",
-        f"v4l2-ctl -d /dev/video1 --set-fmt-video=width={WIDTH},height={HEIGHT},pixelformat=UYVY --stream-mmap --stream-to=-"
-    ]
+  cmd = [
+      "ssh", *SSH_OPTS, f"root@{ip}",
+      f"v4l2-ctl -d /dev/video1 --set-fmt-video=width={WIDTH},height={HEIGHT},pixelformat=UYVY --stream-mmap --stream-to=-"
+  ]
 
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-    stream_error = None
-    stream_start_time = time.time()
+  proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+  stream_error = None
+  stream_start_time = time.time()
 
-    frame_times = []
+  frame_times = []
+  
+  # maxsize=1 is the secret! It forces the background thread to wait for the encoder.
+  # This creates "backpressure" to the Jetson, matching the original 15 FPS 
+  # and stopping the Python memory from churning out of control.
+  frame_queue = queue.Queue(maxsize=1)
 
-    def read_with_timeout(pipe, size, timeout=3.0):
-        result = [None]
-        def _read():
-            try:
-                result[0] = pipe.read(size)
-            except Exception:
-                result[0] = b""
-        t = threading.Thread(target=_read, daemon=True)
-        t.start()
-        t.join(timeout)
-        return result[0]
+  # 1. Single dedicated reader thread
+  def pipe_reader():
+      try:
+          while proc.poll() is None:
+              raw = proc.stdout.read(FRAME_SIZE)
+              if not raw:
+                  break
+              
+              # Try to put the frame in the queue.
+              # If the encoder isn't ready, block and wait (throttle the stream).
+              # The loop checks proc.poll() so the thread safely dies when the user hits "Stop".
+              put_success = False
+              while proc.poll() is None and not put_success:
+                  try:
+                      frame_queue.put(raw, timeout=0.5)
+                      put_success = True
+                  except queue.Full:
+                      pass
+      except Exception:
+          pass
 
-    try:
-        while True:
-            t0 = time.time()
-            raw = read_with_timeout(proc.stdout, FRAME_SIZE, timeout=3.0)
+  reader_thread = threading.Thread(target=pipe_reader, daemon=True)
+  reader_thread.start()
 
-            if raw is None or len(raw) < FRAME_SIZE:
-                stream_error = "no_signal"
-                break
+  # 2. Main processing loop
+  try:
+      while True:
+          try:
+              # Wait up to 10 seconds for a frame. If the network drops, 
+              # this cleanly triggers the "no_signal" error and disconnects.
+              raw = frame_queue.get(timeout=10.0)
+          except queue.Empty:
+              stream_error = "no_signal"
+              break
 
-            yuv = np.frombuffer(raw, dtype=np.uint8).reshape((HEIGHT, WIDTH, 2))
-            bgr = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR_UYVY)
-            
-            frame = cv2.resize(bgr, (960, 540))
+          if len(raw) < FRAME_SIZE:
+              stream_error = "no_signal"
+              break
 
-            ts = time.strftime("%Y-%m-%d %H:%M:%S")
-            cv2.putText(frame, ts, (10, 30), cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 0, 0), 3)
-            cv2.putText(frame, ts, (10, 30), cv2.FONT_HERSHEY_DUPLEX, 0.8, (255, 255, 255), 1)
+          yuv = np.frombuffer(raw, dtype=np.uint8).reshape((HEIGHT, WIDTH, 2))
+          bgr = cv2.cvtColor(yuv, cv2.COLOR_YUV2BGR_UYVY)
+          
+          frame = cv2.resize(bgr, (960, 540))
 
-            now = time.time()
-            frame_times.append(now)
-            frame_times = [ft for ft in frame_times if now - ft < 2.0]
-            current_fps = len(frame_times) / 2.0
+          ts = time.strftime("%Y-%m-%d %H:%M:%S")
+          cv2.putText(frame, ts, (10, 30), cv2.FONT_HERSHEY_DUPLEX, 0.8, (0, 0, 0), 3)
+          cv2.putText(frame, ts, (10, 30), cv2.FONT_HERSHEY_DUPLEX, 0.8, (255, 255, 255), 1)
 
-            ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
-            if not ret:
-                continue
+          now = time.time()
+          frame_times.append(now)
+          frame_times = [ft for ft in frame_times if now - ft < 2.0]
+          current_fps = len(frame_times) / 2.0
 
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+          ret, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+          if not ret:
+              continue
 
-    finally:
-        proc.terminate()
-        proc.kill()
-        current_fps = 0.0
-        stream_start_time = None
+          yield (b'--frame\r\n'
+                  b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+
+  finally:
+      proc.terminate()
+      proc.kill()
+      current_fps = 0.0
+      stream_start_time = None
 
 
 _tegrastats_stop = None

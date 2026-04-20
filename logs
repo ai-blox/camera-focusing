@@ -1,0 +1,532 @@
+Microsoft Windows [Version 10.0.26200.8246]
+(c) Microsoft Corporation. All rights reserved.
+
+C:\Users\Remi De Coster>.dbus-keyrings
+
+C:\Users\Remi De Coster>
+
+C:\Users\Remi De Coster>
+
+C:\Users\Remi De Coster>ssh root@192.168.100.168
+
+C:\Users\Remi De Coster>ssh root@192.168.100.186
+The authenticity of host '192.168.100.186 (192.168.100.186)' can't be established.
+ED25519 key fingerprint is SHA256:2bKypw6/OptjXtK4Hns9ljBKg0XiN1YzaFMPYY1CQkk.
+This host key is known by the following other names/addresses:
+    C:\Users\Remi De Coster/.ssh/known_hosts:11: 192.168.7.216
+    C:\Users\Remi De Coster/.ssh/known_hosts:18: 192.168.0.101
+Are you sure you want to continue connecting (yes/no/[fingerprint])? yes
+Warning: Permanently added '192.168.100.186' (ED25519) to the list of known hosts.
+root@aibp0046-p3767-0003:~# ls
+dmesg.csv  nohup.out
+root@aibp0046-p3767-0003:~# modprobe aib_bmu_gpio
+root@aibp0046-p3767-0003:~# gpioinfo
+gpiochip0 - 164 lines:
+        line   0:       "PA.00"                 output consumer="regulator-vdd-3v3-sd"
+        line   1:       "PA.01"                 input
+        line   2:       "PA.02"                 input
+        line   3:       "PA.03"                 input
+        line   4:       "PA.04"                 input
+        line   5:       "PA.05"                 input
+        line   6:       "PA.06"                 input
+        line   7:       "PA.07"                 input
+        line   8:       "PB.00"                 input
+        line   9:       "PC.00"                 input
+        line  10:       "PC.01"                 input
+        line  11:       "PC.02"                 input
+        line  12:       "PC.03"                 input
+        line  13:       "PC.04"                 input
+        line  14:       "PC.05"                 input
+        line  15:       "PC.06"                 input
+        line  16:       "PC.07"                 input
+        line  17:       "PD.00"                 input
+        line  18:       "PD.01"                 input
+        line  19:       "PD.02"                 input
+        line  20:       "PD.03"                 input
+        line  21:       "PE.00"                 input
+        line  22:       "PE.01"                 input
+        line  23:       "PE.02"                 input
+        line  24:       "PE.03"                 input
+        line  25:       "PE.04"                 input
+        line  26:       "PE.05"                 input
+        line  27:       "PE.06"                 input
+        line  28:       "PE.07"                 input
+        line  29:       "PF.00"                 input
+        line  30:       "PF.01"                 input
+        line  31:       "PF.02"                 input
+        line  32:       "PF.03"                 input
+        line  33:       "PF.04"                 input
+        line  34:       "PF.05"                 input
+        line  35:       "PG.00"                 input active-low consumer="Force Recovery"
+        line  36:       "PG.01"                 input
+        line  37:       "PG.02"                 input
+        line  38:       "PG.03"                 input
+        line  39:       "PG.04"                 input
+        line  40:       "PG.05"                 input
+        line  41:       "PG.06"                 output
+        line  42:       "PG.07"                 input
+        line  43:       "PH.00"                 output
+        line  44:       "PH.01"                 input
+        line  45:       "PH.02"                 input
+        line  46:       "PH.03"                 input
+        line  47:       "PH.04"                 input
+        line  48:       "PH.05"                 input
+        line  49:       "PH.06"                 output consumer="camera-control-output-low"
+        line  50:       "PH.07"                 input
+        line  51:       "PI.00"                 input
+        line  52:       "PI.01"                 input
+        line  53:       "PI.02"                 input
+        line  54:       "PI.03"                 input
+        line  55:       "PI.04"                 input
+        line  56:       "PI.05"                 input consumer="kernel"
+        line  57:       "PI.06"                 input
+        line  58:       "PJ.00"                 input
+        line  59:       "PJ.01"                 input
+        line  60:       "PJ.02"                 input
+        line  61:       "PJ.03"                 input
+        line  62:       "PJ.04"                 input
+        line  63:       "PJ.05"                 input
+        line  64:       "PK.00"                 input
+        line  65:       "PK.01"                 input
+        line  66:       "PK.02"                 input
+        line  67:       "PK.03"                 input
+        line  68:       "PK.04"                 output
+        line  69:       "PK.05"                 output
+        line  70:       "PK.06"                 input
+        line  71:       "PK.07"                 input
+        line  72:       "PL.00"                 input
+        line  73:       "PL.01"                 input
+        line  74:       "PL.02"                 input consumer="nvidia,pex-wake"
+        line  75:       "PL.03"                 input
+        line  76:       "PM.00"                 input consumer="kernel"
+        line  77:       "PM.01"                 input
+        line  78:       "PM.02"                 input
+        line  79:       "PM.03"                 input
+        line  80:       "PM.04"                 input
+        line  81:       "PM.05"                 input
+        line  82:       "PM.06"                 input
+        line  83:       "PM.07"                 input
+        line  84:       "PN.00"                 input
+        line  85:       "PN.01"                 output
+        line  86:       "PN.02"                 input
+        line  87:       "PN.03"                 input
+        line  88:       "PN.04"                 input
+        line  89:       "PN.05"                 input
+        line  90:       "PN.06"                 input
+        line  91:       "PN.07"                 input
+        line  92:       "PP.00"                 input
+        line  93:       "PP.01"                 input
+        line  94:       "PP.02"                 input
+        line  95:       "PP.03"                 input
+        line  96:       "PP.04"                 input
+        line  97:       "PP.05"                 input
+        line  98:       "PP.06"                 output
+        line  99:       "PP.07"                 input
+        line 100:       "PQ.00"                 input
+        line 101:       "PQ.01"                 input
+        line 102:       "PQ.02"                 input
+        line 103:       "PQ.03"                 output
+        line 104:       "PQ.04"                 input
+        line 105:       "PQ.05"                 input
+        line 106:       "PQ.06"                 input
+        line 107:       "PQ.07"                 input
+        line 108:       "PR.00"                 input
+        line 109:       "PR.01"                 input
+        line 110:       "PR.02"                 input
+        line 111:       "PR.03"                 input
+        line 112:       "PR.04"                 input
+        line 113:       "PR.05"                 input
+        line 114:       "PX.00"                 input consumer="kernel"
+        line 115:       "PX.01"                 input consumer="kernel"
+        line 116:       "PX.02"                 input
+        line 117:       "PX.03"                 input
+        line 118:       "PX.04"                 input
+        line 119:       "PX.05"                 input
+        line 120:       "PX.06"                 input
+        line 121:       "PX.07"                 input
+        line 122:       "PY.00"                 input
+        line 123:       "PY.01"                 input
+        line 124:       "PY.02"                 input
+        line 125:       "PY.03"                 input
+        line 126:       "PY.04"                 input
+        line 127:       "PY.05"                 input
+        line 128:       "PY.06"                 input
+        line 129:       "PY.07"                 input
+        line 130:       "PZ.00"                 input
+        line 131:       "PZ.01"                 input
+        line 132:       "PZ.02"                 input
+        line 133:       "PZ.03"                 input
+        line 134:       "PZ.04"                 input
+        line 135:       "PZ.05"                 input
+        line 136:       "PZ.06"                 input
+        line 137:       "PZ.07"                 input
+        line 138:       "PAC.00"                output consumer="camera-control-output-low"
+        line 139:       "PAC.01"                input
+        line 140:       "PAC.02"                input
+        line 141:       "PAC.03"                input
+        line 142:       "PAC.04"                input
+        line 143:       "PAC.05"                input
+        line 144:       "PAC.06"                input
+        line 145:       "PAC.07"                input
+        line 146:       "PAD.00"                input
+        line 147:       "PAD.01"                input
+        line 148:       "PAD.02"                input
+        line 149:       "PAD.03"                input
+        line 150:       "PAE.00"                input
+        line 151:       "PAE.01"                input
+        line 152:       "PAF.00"                input
+        line 153:       "PAF.01"                input
+        line 154:       "PAF.02"                input
+        line 155:       "PAF.03"                input
+        line 156:       "PAG.00"                input
+        line 157:       "PAG.01"                input
+        line 158:       "PAG.02"                input
+        line 159:       "PAG.03"                input
+        line 160:       "PAG.04"                input
+        line 161:       "PAG.05"                input
+        line 162:       "PAG.06"                input
+        line 163:       "PAG.07"                input
+gpiochip1 - 32 lines:
+        line   0:       "PAA.00"                input
+        line   1:       "PAA.01"                input
+        line   2:       "PAA.02"                input
+        line   3:       "PAA.03"                input
+        line   4:       "PAA.04"                output
+        line   5:       "PAA.05"                output consumer="regulator-vdd-3v3-pcie"
+        line   6:       "PAA.06"                input
+        line   7:       "PAA.07"                input
+        line   8:       "PBB.00"                input
+        line   9:       "PBB.01"                input
+        line  10:       "PBB.02"                input
+        line  11:       "PBB.03"                output
+        line  12:       "PCC.00"                output
+        line  13:       "PCC.01"                input
+        line  14:       "PCC.02"                input
+        line  15:       "PCC.03"                output consumer="mux"
+        line  16:       "PCC.04"                input
+        line  17:       "PCC.05"                input
+        line  18:       "PCC.06"                input
+        line  19:       "PCC.07"                input
+        line  20:       "PDD.00"                input
+        line  21:       "PDD.01"                input
+        line  22:       "PDD.02"                input
+        line  23:       "PEE.00"                input
+        line  24:       "PEE.01"                input
+        line  25:       "PEE.02"                input consumer="interrupt"
+        line  26:       "PEE.03"                input
+        line  27:       "PEE.04"                input active-low consumer="Power"
+        line  28:       "PEE.05"                input
+        line  29:       "PEE.06"                input
+        line  30:       "PEE.07"                input
+        line  31:       "PGG.00"                input
+gpiochip2 - 24 lines:
+        line   0:       unnamed                 output consumer=tca6424_22_outlow
+        line   1:       unnamed                 output consumer=tca6424_22_outlow
+        line   2:       unnamed                 output consumer=tca6424_22_outlow
+        line   3:       unnamed                 output consumer=tca6424_22_outlow
+        line   4:       unnamed                 output consumer=tca6424_22_outlow
+        line   5:       unnamed                 output consumer=tca6424_22_outlow
+        line   6:       unnamed                 output consumer=tca6424_22_outlow
+        line   7:       unnamed                 output active-low consumer=tca6424_22_outlow
+        line   8:       unnamed                 input
+        line   9:       unnamed                 input
+        line  10:       unnamed                 input
+        line  11:       unnamed                 input
+        line  12:       unnamed                 input
+        line  13:       unnamed                 input
+        line  14:       unnamed                 input
+        line  15:       unnamed                 input
+        line  16:       unnamed                 input
+        line  17:       unnamed                 input
+        line  18:       unnamed                 input
+        line  19:       unnamed                 input
+        line  20:       unnamed                 input
+        line  21:       unnamed                 input
+        line  22:       unnamed                 input
+        line  23:       unnamed                 input
+gpiochip3 - 24 lines:
+        line   0:       unnamed                 output consumer=tca6424_22_outlow
+        line   1:       unnamed                 output consumer=tca6424_22_outlow
+        line   2:       unnamed                 output consumer=tca6424_22_outlow
+        line   3:       unnamed                 output consumer=tca6424_22_outlow
+        line   4:       unnamed                 output consumer=tca6424_22_outlow
+        line   5:       unnamed                 output consumer=tca6424_22_outlow
+        line   6:       unnamed                 output consumer=tca6424_22_outlow
+        line   7:       unnamed                 output active-low consumer=tca6424_22_outlow
+        line   8:       unnamed                 input
+        line   9:       unnamed                 input
+        line  10:       unnamed                 input
+        line  11:       unnamed                 input
+        line  12:       unnamed                 input
+        line  13:       unnamed                 input
+        line  14:       unnamed                 input
+        line  15:       unnamed                 input
+        line  16:       unnamed                 input
+        line  17:       unnamed                 input
+        line  18:       unnamed                 input
+        line  19:       unnamed                 input
+        line  20:       unnamed                 input
+        line  21:       unnamed                 input
+        line  22:       unnamed                 input
+        line  23:       unnamed                 input
+gpiochip4 - 50 lines:
+        line   0:       "SDMMC_RESETn"          output
+        line   1:       "TP23"                  output
+        line   2:       "GPIO_EXP1_INT"         output
+        line   3:       "GPIO_EXP2_INT"         output
+        line   4:       "TALK_TO_JETSON"        output
+        line   5:       "UART_MUX"              output
+        line   6:       "MODULE_SLEEP_N_IN"     output
+        line   7:       "TP92"                  output
+        line   8:       "TP93"                  output
+        line   9:       "GPIO_EXP_RESET"        output
+        line  10:       "SYS_RESET_N_IN"        output
+        line  11:       "SYS_RESET_N_OUT"       output
+        line  12:       "TP90"                  output
+        line  13:       "TP91"                  output
+        line  14:       "TP24"                  output
+        line  15:       "TP25"                  output
+        line  16:       "TP27"                  output
+        line  17:       "BMU_TO_JETSON_INT"     output
+        line  18:       "BMU_LED_G"             output
+        line  19:       "BMU_LED_R"             output
+        line  20:       "EFUSE_PG"              output
+        line  21:       "TP76"                  output
+        line  22:       "1V8_SYS_EN"            output
+        line  23:       "1V8_SYS_PG"            output
+        line  24:       "3V3_CAM_EN"            output
+        line  25:       "3V3_SYS_EN"            output
+        line  26:       "3V3_SYS_PG"            output
+        line  27:       "5V_SYS_EN"             output
+        line  28:       "TP78"                  output
+        line  29:       "12V_INT_EN"            output
+        line  30:       "12V_INT_PG"            output
+        line  31:       "TP79"                  output
+        line  32:       "5V_JETSON_EN"          output
+        line  33:       "5V_JETSON_PG"          output
+        line  34:       "FORCE_RECOVERY_IN"     output
+        line  35:       "FORCE_RECOVERY_OUT"    output
+        line  36:       "TP80"                  output
+        line  37:       "MODULE_POWER_ON_OUT"   output
+        line  38:       "MODULE_SHDN_N_OUT"     output
+        line  39:       "TP81"                  output
+        line  40:       "SLEEP_REQ_N_OUT"       output
+        line  41:       "TP82"                  output
+        line  42:       "TP83"                  output
+        line  43:       "TP84"                  output
+        line  44:       "TP85"                  output
+        line  45:       "TP86"                  output
+        line  46:       "TP87"                  output
+        line  47:       "TP97"                  output
+        line  48:       "TP89"                  output
+        line  49:       "MODULE_ID"             output
+root@aibp0046-p3767-0003:~# gpioset 3V3_CAM_EN=0
+^C
+root@aibp0046-p3767-0003:~# gpioset 3V3_CAM_EN=1
+^C
+root@aibp0046-p3767-0003:~# gpioset 3V3_CAM_EN=1 -t0
+gpioset: invalid line value: '-t0'
+root@aibp0046-p3767-0003:~# gpioset -t0 3V3_CAM_EN=1
+root@aibp0046-p3767-0003:~# gpioget 3V3_CAM_PG
+gpioget: cannot find line '3V3_CAM_PG'
+root@aibp0046-p3767-0003:~# gpioset -t0 3V3_CAM_EN=1
+root@aibp0046-p3767-0003:~# lsmod
+Module                  Size  Used by
+aib_bmu_gpio           16384  0
+usb_f_ecm              24576  2
+usb_f_acm              16384  2
+u_serial               20480  3 usb_f_acm
+usb_f_rndis            32768  2
+u_ether                28672  2 usb_f_rndis,usb_f_ecm
+cfg80211              884736  0
+bridge                262144  0
+stp                    20480  1 bridge
+llc                    20480  2 bridge,stp
+libcomposite           65536  14 usb_f_rndis,usb_f_ecm,usb_f_acm
+snd_soc_tegra210_admaif   131072  1
+snd_soc_tegra186_asrc    40960  1
+snd_soc_tegra_pcm      16384  1 snd_soc_tegra210_admaif
+snd_soc_tegra210_mixer    49152  1
+snd_soc_tegra210_ope    36864  1
+snd_soc_tegra210_mvc    20480  2
+snd_soc_tegra186_arad    28672  2 snd_soc_tegra186_asrc
+snd_soc_tegra210_afc    20480  6
+snd_soc_tegra186_dspk    20480  2
+snd_soc_tegra210_adx    32768  4
+snd_soc_tegra210_dmic    20480  3
+snd_soc_tegra210_sfc    61440  4
+snd_soc_tegra210_amx    36864  4
+snd_soc_tegra210_i2s    28672  4
+aib_bmu_core           16384  0
+aib_bmu_rtc            16384  0
+tegra210_adma          24576  0
+snd_soc_tegra210_ahub  1273856  3 snd_soc_tegra210_ope,snd_soc_tegra210_sfc
+spidev                 28672  0
+nvvrs_pseq_rtc         16384  0
+aib_bmu_mfd            16384  0
+lp5815                 49152  0
+ar0521                344064  0
+snd_hda_codec_hdmi     69632  1
+tegra_cactmon_mc_all    16384  0
+mttcan                 69632  0
+nvpps                  32768  1 mttcan
+can_dev                40960  1 mttcan
+tegra234_aon           57344  1
+tegra_aconnect         16384  0
+snd_hda_tegra          16384  0
+snd_hda_codec         139264  2 snd_hda_codec_hdmi,snd_hda_tegra
+pwm_tegra_tachometer    16384  0
+snd_hda_core          102400  3 snd_hda_codec_hdmi,snd_hda_codec,snd_hda_tegra
+mc_hwpm                16384  0
+r8168                 524288  0
+at24                   24576  0
+fusb301                24576  0
+spi_tegra114           28672  0
+pwm_tegra              20480  1
+host1x_fence           24576  0
+nvidia               1593344  0
+nvidia_vrs_pseq        16384  0
+snd_soc_tegra_machine_driver    16384  0
+snd_soc_tegra_utils    32768  2 snd_soc_tegra210_admaif,snd_soc_tegra_machine_driver
+tegra234_oc_event      16384  0
+snd_soc_simple_card_utils    28672  1 snd_soc_tegra_utils
+crct10dif_ce           20480  1
+tegra_bpmp_thermal     16384  0
+tsecriscv              36864  1 nvidia
+tegra_dce             110592  2 nvidia
+nvpmodel_clk_cap       16384  0
+thermal_trip_event     16384  0
+nvhost_vi5             20480  0
+nvhost_isp5            16384  0
+nvhost_nvcsi_t194      16384  0
+tegra_camera          249856  4 nvhost_isp5,nvhost_nvcsi_t194,ar0521,nvhost_vi5
+v4l2_dv_timings        36864  1 tegra_camera
+nvhost_nvcsi           24576  1 tegra_camera
+tegra_camera_platform    24576  4 nvhost_isp5,nvhost_nvcsi_t194,tegra_camera,nvhost_vi5
+capture_ivc            28672  1 tegra_camera
+tegra_camera_rtcpu    229376  2 capture_ivc,tegra_camera
+ivc_bus                24576  2 capture_ivc,tegra_camera_rtcpu
+governor_userspace     16384  0
+hsp_mailbox_client     20480  2 ivc_bus,tegra_camera_rtcpu
+ivc_ext                20480  2 ivc_bus,capture_ivc
+v4l2_fwnode            20480  1 tegra_camera
+tegra_drm             372736  0
+v4l2_async             24576  3 v4l2_fwnode,tegra_camera,ar0521
+videobuf2_dma_contig    24576  1 tegra_camera
+videobuf2_memops       20480  1 videobuf2_dma_contig
+videobuf2_v4l2         32768  1 tegra_camera
+tegra_wmark            16384  0
+videobuf2_common       65536  4 videobuf2_dma_contig,videobuf2_v4l2,tegra_camera,videobuf2_memops
+videodev              266240  5 v4l2_async,videobuf2_v4l2,tegra_camera,videobuf2_common,ar0521
+mc                     61440  4 videodev,videobuf2_v4l2,tegra_camera,videobuf2_common
+nvhost_capture         20480  2 nvhost_isp5,nvhost_vi5
+nvhwpm                139264  2 mc_hwpm,tegra_drm
+host1x_nvhost          40960  7 nvhost_isp5,nvhost_nvcsi_t194,nvidia,tegra_camera,nvhost_capture,nvhost_nvcsi,nvhost_vi5
+cec                    57344  1 tegra_drm
+drm_kms_helper        303104  1 tegra_drm
+pwm_fan                20480  0
+nvgpu                2793472  0
+governor_pod_scaling    45056  0
+nvmap                 237568  1 nvgpu
+nvsciipc               24576  1 nvmap
+host1x                204800  4 host1x_nvhost,host1x_fence,nvgpu,tegra_drm
+mc_utils               16384  3 nvidia,nvgpu,tegra_camera_platform
+ina3221                24576  0
+drm                   630784  4 drm_kms_helper,nvidia,tegra_drm
+fuse                  143360  1
+nfnetlink              20480  2
+ipv6                  503808  33 bridge
+nvme                   49152  2
+nvme_core             106496  3 nvme
+tegra_xudc             45056  0
+pcie_tegra194          40960  0
+phy_tegra194_p2u       16384  9
+root@aibp0046-p3767-0003:~# gpioset -t0 3V3_CAM_EN=1
+root@aibp0046-p3767-0003:~# rmmod tegra_camera
+rmmod: ERROR: Module tegra_camera is in use by: nvhost_isp5 nvhost_nvcsi_t194 ar0521 nvhost_vi5
+root@aibp0046-p3767-0003:~# ^C
+root@aibp0046-p3767-0003:~# rmmod ar0521
+root@aibp0046-p3767-0003:~# insmod ar0521
+insmod: ERROR: could not load module ar0521: No such file or directory
+root@aibp0046-p3767-0003:~# modprobe ar0521
+root@aibp0046-p3767-0003:~# ^C
+root@aibp0046-p3767-0003:~# gpioset -t0 3V3_CAM_EN=1^C
+root@aibp0046-p3767-0003:~# gpioset -t0 3V3_CAM_EN=0
+root@aibp0046-p3767-0003:~# gpioset -t0 3V3_CAM_EN=1
+root@aibp0046-p3767-0003:~# rmmod ar0521
+rmmod: ERROR: Module ar0521 is in use
+root@aibp0046-p3767-0003:~# rmmod ar0521
+rmmod: ERROR: Module ar0521 is in use
+root@aibp0046-p3767-0003:~# rmmod ar0521
+rmmod: ERROR: Module ar0521 is in use
+root@aibp0046-p3767-0003:~# rmmod ar0521
+rmmod: ERROR: Module ar0521 is in use
+root@aibp0046-p3767-0003:~# rmmod -f ar0521
+rmmod: ERROR: could not remove module ar0521: Resource temporarily unavailable
+root@aibp0046-p3767-0003:~# rmmod ar0521
+rmmod: ERROR: Module ar0521 is in use
+root@aibp0046-p3767-0003:~# insmod ar0521
+insmod: ERROR: could not load module ar0521: No such file or directory
+root@aibp0046-p3767-0003:~# rmmod ar0521
+rmmod: ERROR: Module ar0521 is in use
+root@aibp0046-p3767-0003:~# gpioset -t0 3V3_CAM_EN=0
+root@aibp0046-p3767-0003:~# rmmod ar0521
+rmmod: ERROR: Module ar0521 is in use
+root@aibp0046-p3767-0003:~# rmmod ar0521
+rmmod: ERROR: Module ar0521 is in use
+root@aibp0046-p3767-0003:~# modprobe ar0521
+root@aibp0046-p3767-0003:~# modprobe -r ar0521
+modprobe: FATAL: Module ar0521 is in use.
+root@aibp0046-p3767-0003:~# modprobe -h
+Usage:
+        modprobe [options] [-i] [-b] modulename
+        modprobe [options] -a [-i] [-b] modulename [modulename...]
+        modprobe [options] -r [-i] modulename
+        modprobe [options] -r -a [-i] modulename [modulename...]
+        modprobe [options] -c
+        modprobe [options] --dump-modversions filename
+Management Options:
+        -a, --all                   Consider every non-argument to
+                                    be a module name to be inserted
+                                    or removed (-r)
+        -r, --remove                Remove modules instead of inserting
+            --remove-dependencies   Deprecated: use --remove-holders
+            --remove-holders        Also remove module holders (use together with -r)
+        -w, --wait <MSEC>           When removing a module, wait up to MSEC for
+                                    module's refcount to become 0 so it can be
+                                    removed (use together with -r)
+            --first-time            Fail if module already inserted or removed
+        -i, --ignore-install        Ignore install commands
+        -i, --ignore-remove         Ignore remove commands
+        -b, --use-blacklist         Apply blacklist to resolved alias.
+        -f, --force                 Force module insertion or removal.
+                                    implies --force-modversions and
+                                    --force-vermagic
+            --force-modversion      Ignore module's version
+            --force-vermagic        Ignore module's version magic
+
+Query Options:
+        -R, --resolve-alias         Only lookup and print alias and exit
+        -D, --show-depends          Only print module dependencies and exit
+        -c, --showconfig            Print out known configuration and exit
+        -c, --show-config           Same as --showconfig
+            --show-modversions      Dump module symbol version and exit
+            --dump-modversions      Same as --show-modversions
+            --show-exports          Only print module exported symbol versions and exit
+
+General Options:
+        -n, --dry-run               Do not execute operations, just print out
+        -n, --show                  Same as --dry-run
+        -C, --config=FILE           Use FILE instead of default search paths
+        -d, --dirname=DIR           Use DIR as filesystem root for /lib/modules
+        -S, --set-version=VERSION   Use VERSION instead of `uname -r`
+        -s, --syslog                print to syslog, not stderr
+        -q, --quiet                 disable messages
+        -v, --verbose               enables more messages
+        -V, --version               show version
+        -h, --help                  show this help
+root@aibp0046-p3767-0003:~# modprobe -rf ar0521
+modprobe: FATAL: Module ar0521 is in use.
+root@aibp0046-p3767-0003:~# modprobe -r -f ar0521
+modprobe: FATAL: Module ar0521 is in use.
+root@aibp0046-p3767-0003:~#
