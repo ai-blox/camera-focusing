@@ -26,94 +26,6 @@ SSH_OPTS = [
 ]
 
 # ==========================================
-# EXACT USER PROVIDED LED SCRIPT (BREATHING)
-# ==========================================
-ORIGINAL_LED_SCRIPT = r"""#!/bin/sh
-lp5815_path="/sys/bus/i2c/drivers/lp5815/1-002d"
-chip_setup_path="$lp5815_path/lp5815_chip_setup"
-chip_enable="$chip_setup_path/device_enable"
-
-autonomousSetup() {
-	local led_path=$1
-	local autonomous_dir="$led_path/autonomous"
-	local Engine0_path="$autonomous_dir/Engine0"
-	local order_path="$Engine0_path/Engine0_Order0"
-	local pattern_path="$order_path/PATTERN0"
-
-	echo 1 > "$Engine0_path/engine_enable"
-	echo 1 > "$order_path/order_enable"
-	echo 1 > "$pattern_path/pattern_enable"
-	echo 3 > "$Engine0_path/engine_repeat_time"
-	echo 15 > "$pattern_path/repeat_time"
-	echo 9:9 > "$pattern_path/pause_time"
-	echo 11:11 > "$pattern_path/sloper_time1"
-	echo 11:11 > "$pattern_path/sloper_time2"
-	echo 170 > "$pattern_path/pwm0"
-	echo 100 > "$pattern_path/pwm1"
-	echo 20 > "$pattern_path/pwm2"
-	echo 100 > "$pattern_path/pwm3"
-	echo 170 > "$pattern_path/pwm4"
-}
-
-led=$1
-stat=$2
-led_path="$lp5815_path/$led"
-
-echo 1 > "$chip_enable"
-echo 1 > "$chip_setup_path/charging_mode"
-
-if [ "$stat" = "start" ]; then
-	echo 1 > "$led_path/led_enable"
-	echo autonomous > "$led_path/led_mode"
-	echo 150 > "$led_path/dot_current"
-	autonomousSetup "$led_path"
-	echo start > "$chip_setup_path/device_command"
-elif [ "$stat" = "stop" ]; then
-	echo stop > "$chip_setup_path/device_command"
-	echo 0 > "$led_path/led_enable"
-fi
-"""
-
-# ==========================================
-# NEW RAINBOW SCRIPT
-# ==========================================
-RAINBOW_LED_SCRIPT = r"""#!/bin/bash
-lp5815_path="/sys/bus/i2c/drivers/lp5815/1-002d"
-chip_setup_path="$lp5815_path/lp5815_chip_setup"
-
-# 1. Wake up the chip identically to the working script
-echo 1 > "$chip_setup_path/device_enable"
-echo 1 > "$chip_setup_path/charging_mode"
-
-# 2. Set to Direct Mode
-for LED in LED0 LED1 LED2; do
-    echo 1 > "$lp5815_path/$LED/led_enable"
-    echo direct > "$lp5815_path/$LED/led_mode"
-done
-
-# 3. Start the chip state machine
-echo start > "$chip_setup_path/device_command"
-
-# 4. Helper function to set R, G, B current
-update_colors() {
-    echo $1 > "$lp5815_path/LED0/dot_current"
-    echo $2 > "$lp5815_path/LED1/dot_current"
-    echo $3 > "$lp5815_path/LED2/dot_current"
-    sleep 0.05
-}
-
-# 5. Rainbow Phase Loop (Capped at 150 to match your brightness)
-while true; do
-    for ((i=0; i<=150; i+=10)); do update_colors 150 $i 0; done
-    for ((i=150; i>=0; i-=10)); do update_colors $i 150 0; done
-    for ((i=0; i<=150; i+=10)); do update_colors 0 150 $i; done
-    for ((i=150; i>=0; i-=10)); do update_colors 0 $i 150; done
-    for ((i=0; i<=150; i+=10)); do update_colors $i 0 150; done
-    for ((i=150; i>=0; i-=10)); do update_colors 150 0 $i; done
-done
-"""
-
-# ==========================================
 # NETWORK SCANNER
 # ==========================================
 
@@ -223,7 +135,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Carrier Board Functional Testing</title>
+  <title>Blox S Functional Testing</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
@@ -243,8 +155,6 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     .btn { font-family: var(--sans); font-size: 14px; font-weight: 600; padding: 9px 20px; border: none; border-radius: 4px; cursor: pointer; transition: 0.2s;}
     .btn-start { background: var(--accent2); color: #000; }
     .btn-stop  { background: var(--warn); color: #000; }
-    .btn-led   { background: #3498db; color: #fff; }
-    .btn-rainbow { background: linear-gradient(90deg, #ff4d4d, #ffb347, #00ff9d, #00c8ff, #b14dff); color: white; text-shadow: 0 1px 2px #000; }
     .main { display: grid; grid-template-columns: 1fr 450px; height: calc(100vh - 130px); }
     .left-col { border-right: 1px solid var(--border); overflow-y: auto; }
     .card { background: var(--surface); margin: 20px; padding: 20px; border: 1px solid var(--border); border-radius: 8px; }
@@ -253,15 +163,23 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     #image { width: 100%; height: 100%; object-fit: contain; display: none; }
     .stats-bar { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
     .gpio-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
-    .gpio-ind { padding: 15px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; text-align: center; font-family: var(--mono); transition: 0.1s;}
-    .gpio-ind.active { background: var(--accent2); color: #000; font-weight: bold; box-shadow: 0 0 15px var(--accent2); }
+    .gpio-ind {
+      padding: 15px; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; text-align: center; font-family: var(--mono);
+      transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+    }
+    /* Active state is toggled by JS in sync with the 1s on/1s off GPIO script */
+    .gpio-ind.on {
+      background: var(--accent2); color: #000; font-weight: bold;
+      box-shadow: 0 0 15px var(--accent2);
+    }
     .log-container { flex: 1; overflow-y: auto; padding: 10px; font-family: var(--mono); font-size: 12px; background: var(--bg); }
     .log-line { padding: 4px 8px; border-bottom: 1px solid #1a222d; }
     .log-line.error { color: var(--err); }
   </style>
 </head>
 <body>
-<header><div class="logo">Orin Nano <span>Board Tester</span></div></header>
+<header><div class="logo">Blox S <span>Functional Testing</span></div></header>
 <div class="controls">
   <select id="deviceSelect" onchange="document.getElementById('ipInput').value = this.value">
     <option value="">-- Discovered Devices --</option>
@@ -277,8 +195,8 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
         <div id="noStream" style="color:var(--muted)">Offline</div>
       </div>
       <div class="stats-bar">
-        <button class="btn btn-start" id="camStart" onclick="startCamera()">▶ Start</button>
-        <button class="btn btn-stop" id="camStop" onclick="stopCamera()" disabled>■ Stop</button>
+        <button class="btn btn-start" id="camStart" onclick="startCamera()">&#9654; Start</button>
+        <button class="btn btn-stop" id="camStop" onclick="stopCamera()" disabled>&#9632; Stop</button>
         <div class="stat-item" style="margin-left: 20px;"><span id="fpsVal">0.0</span> FPS</div>
       </div>
     </div>
@@ -286,17 +204,17 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     <div class="card">
       <div class="card-title">2. RGB LED Driver</div>
       <div class="stats-bar">
-          <button class="btn btn-led" id="ledBreathStart" onclick="startLED('start_breath')">☁ Breathing (White)</button>
-          <button class="btn btn-rainbow" id="ledRainbowStart" onclick="startLED('start_rainbow')">🌈 Rainbow Cycle</button>
-          <button class="btn btn-stop" id="ledStop" onclick="stopLED()" disabled>■ Stop</button>
+          <input type="color" id="ledColorPicker" value="#00c8ff" style="height:38px; width:50px; cursor:pointer; background:none; border:1px solid var(--border); border-radius:4px;">
+          <button class="btn btn-start" id="ledApply" onclick="setStaticColor()">Apply Color</button>
+          <button class="btn btn-stop" id="ledStop" onclick="stopLED()">&#9632; Turn Off</button>
       </div>
     </div>
     
     <div class="card">
       <div class="card-title">3. Alternating Relays (GPIO)</div>
       <div class="stats-bar">
-          <button class="btn btn-start" id="gpioStart" onclick="startGPIO()">▶ Start Toggle</button>
-          <button class="btn btn-stop" id="gpioStop" onclick="stopGPIO()" disabled>■ Stop</button>
+          <button class="btn btn-start" id="gpioStart" onclick="startGPIO()">&#9654; Start Toggle</button>
+          <button class="btn btn-stop" id="gpioStop" onclick="stopGPIO()" disabled>&#9632; Stop</button>
       </div>
       <div class="gpio-grid">
         <div class="gpio-ind" id="ind-PP06">PP.06 (Relay 1)</div>
@@ -311,8 +229,9 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 </div>
 <script>
   let currentIp = null;
-  let statsInt = null, dmesgInt = null, gpioInt = null;
+  let statsInt = null, dmesgInt = null, gpioToggleInt = null;
 
+  // ── Device discovery ──────────────────────────────────────────────────────
   setInterval(async () => {
     try {
       const r = await fetch("/api/scanned");
@@ -324,6 +243,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     } catch(e){}
   }, 3000);
 
+  // ── Camera ────────────────────────────────────────────────────────────────
   function startCamera() {
     const ip = document.getElementById("ipInput").value;
     if(!ip) return; currentIp = ip;
@@ -357,20 +277,29 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     if(dmesgInt) clearInterval(dmesgInt);
   }
 
-  async function startLED(mode) {
+  // ── LED ───────────────────────────────────────────────────────────────────
+  async function setStaticColor() {
     const ip = document.getElementById("ipInput").value;
     if(!ip) return;
-    document.getElementById("ledBreathStart").disabled = true;
-    document.getElementById("ledRainbowStart").disabled = true;
-    document.getElementById("ledStop").disabled = false;
-    await fetch(`/api/led?ip=${ip}&state=${mode}`, {method:'POST'});
+    const hex = document.getElementById("ledColorPicker").value.replace('#', '');
+    await fetch(`/api/led?ip=${ip}&state=color&hex=${hex}`, {method:'POST'});
   }
 
   async function stopLED() {
-    document.getElementById("ledBreathStart").disabled = false;
-    document.getElementById("ledRainbowStart").disabled = false;
-    document.getElementById("ledStop").disabled = true;
-    await fetch(`/api/led?ip=${document.getElementById("ipInput").value}&state=stop`, {method:'POST'});
+    const ip = document.getElementById("ipInput").value;
+    if(!ip) return;
+    await fetch(`/api/led?ip=${ip}&state=stop`, {method:'POST'});
+  }
+
+  // ── GPIO ──────────────────────────────────────────────────────────────────
+  // Each gpioset runs a repeating 1 s ON / 1 s OFF cycle on its own pin.
+  // The two pins run independently — we stagger the UI by 500 ms so they
+  // visually alternate: relay 1 lights first, relay 2 follows half a cycle later.
+  let gpioTimers = [];
+
+  function setRelay(id, on) {
+    const el = document.getElementById(id);
+    if (on) el.classList.add("on"); else el.classList.remove("on");
   }
 
   async function startGPIO() {
@@ -378,21 +307,31 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     if(!ip) return;
     document.getElementById("gpioStart").disabled = true;
     document.getElementById("gpioStop").disabled = false;
+
+    // Relay 1: ON immediately, toggles every 1 s
+    let r1state = true;
+    setRelay("ind-PP06", r1state);
+    const t1 = setInterval(() => { r1state = !r1state; setRelay("ind-PP06", r1state); }, 1000);
+
+    // Relay 2: starts after 500 ms offset so they alternate
+    const t2init = setTimeout(() => {
+      let r2state = true;
+      setRelay("ind-PCC00", r2state);
+      const t2 = setInterval(() => { r2state = !r2state; setRelay("ind-PCC00", r2state); }, 1000);
+      gpioTimers.push(t2);
+    }, 500);
+
+    gpioTimers.push(t1, t2init);
     await fetch(`/api/gpio?ip=${ip}&state=start`, {method:'POST'});
-    let step = 0;
-    gpioInt = setInterval(() => {
-      document.getElementById("ind-PP06").classList.toggle('active', step % 2 === 0);
-      document.getElementById("ind-PCC00").classList.toggle('active', step % 2 !== 0);
-      step++;
-    }, 1000);
   }
 
   async function stopGPIO() {
     document.getElementById("gpioStart").disabled = false;
     document.getElementById("gpioStop").disabled = true;
-    if(gpioInt) { clearInterval(gpioInt); gpioInt = null; }
-    document.getElementById("ind-PP06").classList.remove('active');
-    document.getElementById("ind-PCC00").classList.remove('active');
+    gpioTimers.forEach(t => { clearInterval(t); clearTimeout(t); });
+    gpioTimers = [];
+    setRelay("ind-PP06",  false);
+    setRelay("ind-PCC00", false);
     await fetch(`/api/gpio?ip=${document.getElementById("ipInput").value}&state=stop`, {method:'POST'});
   }
 </script>
@@ -419,33 +358,72 @@ def get_dmesg(): return jsonify(fetch_dmesg(request.args.get("ip", "")))
 @app.route("/api/led", methods=['POST'])
 def toggle_led():
     global remote_pids
-    state, ip = request.args.get("state"), request.args.get("ip", "")
-    
-    if state == "start_breath" and ip:
-        # Save Breathing Script Locally ensuring \n endings
-        with open("leds.sh", "w", newline='\n') as f:
-            f.write(ORIGINAL_LED_SCRIPT)
-        
-        subprocess.run(["scp", *SSH_OPTS[0:4], "leds.sh", f"root@{ip}:/tmp/leds.sh"], check=False)
-        start_cmd = "chmod +x /tmp/leds.sh && /tmp/leds.sh LED0 start && /tmp/leds.sh LED1 start && /tmp/leds.sh LED2 start"
-        subprocess.run(["ssh", *SSH_OPTS, f"root@{ip}", start_cmd])
-        
-    elif state == "start_rainbow" and ip:
-        # Save Rainbow Script Locally ensuring \n endings
-        with open("rainbow.sh", "w", newline='\n') as f:
-            f.write(RAINBOW_LED_SCRIPT)
-            
-        subprocess.run(["scp", *SSH_OPTS[0:4], "rainbow.sh", f"root@{ip}:/tmp/rainbow.sh"], check=False)
-        # We wrap this one in run_remote_script because it has a while true loop
-        remote_pids["led"] = run_remote_script(ip, "chmod +x /tmp/rainbow.sh && /tmp/rainbow.sh")
+    state = request.args.get("state")
+    ip = request.args.get("ip", "")
 
-    elif state == "stop" and ip:
-        kill_remote_pid(ip, remote_pids["led"])
-        remote_pids["led"] = None
-        # Shut down driver explicitly
-        stop_cmd="killall -9 rainbow.sh"
-        subprocess.run(["ssh", *SSH_OPTS, f"root@{ip}", stop_cmd])
-        
+    if not ip:
+        return jsonify({"error": "No IP provided"}), 400
+
+    # Kill any lingering background LED script
+    kill_remote_pid(ip, remote_pids.get("led"))
+    remote_pids["led"] = None
+
+    # LP5815 custom TI driver — built into the L4T kernel, not a loadable module.
+    # DT binding: i2c1 @ 0x2d  →  sysfs base: /sys/bus/i2c/drivers/lp5815/1-002d
+    # LED0 = Red, LED1 = Green, LED2 = Blue  (verify on your board if colours differ)
+    LP = "/sys/bus/i2c/drivers/lp5815/1-002d"
+    CS = f"{LP}/lp5815_chip_setup"
+
+    if state == "stop":
+        script = f"""
+        echo stop  > {CS}/device_command 2>/dev/null
+        echo 0     > {LP}/LED0/led_enable 2>/dev/null
+        echo 0     > {LP}/LED1/led_enable 2>/dev/null
+        echo 0     > {LP}/LED2/led_enable 2>/dev/null
+        """
+        subprocess.run(["ssh", *SSH_OPTS, f"root@{ip}", "bash", "-s"],
+                       input=script.encode(), check=False)
+
+    elif state == "color":
+        hex_val = request.args.get("hex", "000000")
+        try:
+            r, g, b = tuple(int(hex_val[i:i+2], 16) for i in (0, 2, 4))
+        except ValueError:
+            r, g, b = 0, 0, 0
+
+        # dot_current max is 150 per TI docs; scale from 0-255 → 0-150
+        r = int(r * 150 / 255)
+        g = int(g * 150 / 255)
+        b = int(b * 150 / 255)
+
+        # Manual mode sequence per TI documentation:
+        # 1. Enable chip + charging mode
+        # 2. Set each LED to manual mode
+        # 3. Enable each LED + set dot_current (brightness)
+        # 4. Set manual_pwm to 100 (full duty cycle)
+        # 5. Issue start command
+        script = f"""
+        echo 1      > {CS}/device_enable
+        echo 1      > {CS}/charging_mode
+
+        for LED in LED0 LED1 LED2; do
+            echo manual > {LP}/$LED/led_mode
+            echo 1      > {LP}/$LED/led_enable
+        done
+
+        echo {r}   > {LP}/LED0/dot_current
+        echo {g}   > {LP}/LED1/dot_current
+        echo {b}   > {LP}/LED2/dot_current
+
+        echo 100   > {LP}/LED0/manual/manual_pwm
+        echo 100   > {LP}/LED1/manual/manual_pwm
+        echo 100   > {LP}/LED2/manual/manual_pwm
+
+        echo start > {CS}/device_command
+        """
+        subprocess.run(["ssh", *SSH_OPTS, f"root@{ip}", "bash", "-s"],
+                       input=script.encode(), check=False)
+
     return jsonify({"status": "ok"})
 
 @app.route("/api/gpio", methods=['POST'])
@@ -453,15 +431,19 @@ def toggle_gpio():
     global remote_pids
     state, ip = request.args.get("state"), request.args.get("ip", "")
     if state == "start" and ip:
-        gpio_script = """
-        gpioset -t 1s,1s,0 PP.06=1
-        gpioset -t 1s,1s,0 PCC.00=1
-        """
+        # Each gpioset runs its own 1 s ON / 1 s OFF cycle on one pin.
+        # They are launched in the background so both toggle independently.
+        # -t 1000,1000  →  1 s ON, 1 s OFF, last period non-zero = repeats forever
+        gpio_script = (
+            "gpioset -t 1000,1000 PP.06=1 & "
+            "gpioset -t 1000,1000 PCC.00=1 &"
+        )
         remote_pids["gpio"] = run_remote_script(ip, gpio_script)
     elif state == "stop" and ip:
         kill_remote_pid(ip, remote_pids["gpio"])
         remote_pids["gpio"] = None
-        subprocess.run(["ssh", *SSH_OPTS, f"root@{ip}", "killall -9 gpioset"], stdout=subprocess.DEVNULL)
+        subprocess.run(["ssh", *SSH_OPTS, f"root@{ip}", "killall -9 gpioset"],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return jsonify({"status": "ok"})
 
 if __name__ == "__main__":
