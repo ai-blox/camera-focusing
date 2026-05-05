@@ -141,7 +141,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Blox S Functional Testing</title>
+  <title>Bloxcore</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
@@ -167,6 +167,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       border: 1px solid var(--border); color: var(--text); padding: 7px 12px;
       border-radius: 4px; outline: none;
     }
+    input[readonly] { color: var(--accent2); }
 
     .btn { font-family: var(--sans); font-size: 13px; font-weight: 600;
            padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;
@@ -204,7 +205,7 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     .stats-bar { display: flex; gap: 10px; align-items: center; }
 
     /* Controls pane */
-    .ctrl-pane { padding: 18px; display: flex; flex-direction: column; gap: 18px; }
+    .ctrl-pane { padding: 18px; display: flex; flex-direction: column; gap: 18px; overflow-y: auto; max-height: 55vh;}
 
     .card { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 14px; }
     .card-title { font-family: var(--mono); font-size: 13px; color: var(--accent);
@@ -231,6 +232,11 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       background: var(--accent2); color: #000; font-weight: bold;
       box-shadow: 0 0 12px var(--accent2);
     }
+
+    /* Device Info Groups */
+    .info-group { margin-bottom: 16px; }
+    .info-label { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 6px; letter-spacing: 1px; }
+    .info-row { display: flex; gap: 8px; align-items: center; }
 
     /* ── dmesg: full width, fills remaining height ── */
     .dmesg-area {
@@ -269,7 +275,6 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   <input type="text" id="ipInput" placeholder="Target IP">
 </div>
 
-<!-- Top: camera | LED + GPIO -->
 <div class="top-area">
 
   <div class="cam-pane">
@@ -313,10 +318,38 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
       </div>
     </div>
 
+    <div class="card">
+      <div class="card-title">4. Device Info & Power</div>
+      
+      <div class="info-group">
+        <div class="info-label">MAC ADDRESS</div>
+        <div class="info-row">
+          <input type="text" id="macField" placeholder="Ready" style="flex: 1;" readonly>
+          <button class="btn btn-blue" onclick="fetchMAC()">Get MAC</button>
+          <button class="btn btn-start" id="macCopyBtn" onclick="copyField('macField', 'macCopyBtn')" disabled>Copy</button>
+          <button class="btn btn-stop" onclick="clearField('macField', 'macCopyBtn')">Clear</button>
+        </div>
+      </div>
+
+      <div class="info-group">
+        <div class="info-label">ATECC SECURITY</div>
+        <div class="info-row">
+          <input type="text" id="ateccField" placeholder="Ready" style="flex: 1;" readonly>
+          <button class="btn btn-blue" onclick="fetchATECC()">Get ATECC</button>
+          <button class="btn btn-start" id="ateccCopyBtn" onclick="copyField('ateccField', 'ateccCopyBtn')" disabled>Copy</button>
+          <button class="btn btn-stop" onclick="clearField('ateccField', 'ateccCopyBtn')">Clear</button>
+        </div>
+      </div>
+
+      <div class="info-group" style="margin-bottom: 0;">
+        <div class="info-label">POWER CONTROL</div>
+        <button class="btn btn-red" onclick="shutdownDevice()">Shutdown Device</button>
+      </div>
+    </div>
+
   </div>
 </div>
 
-<!-- Bottom: full-width dmesg -->
 <div class="dmesg-area">
   <div class="dmesg-title">dmesg</div>
   <div id="logBox" class="log-container"></div>
@@ -446,19 +479,33 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
   }
 
   function toggleRainbow() {
-    if(rainbowActive) { stopRainbow(); return; }
-    const ip = document.getElementById("ipInput").value; if(!ip) return;
-    rainbowActive = true;
-    document.getElementById("btnRainbow").classList.add("active");
-    setPreview(null, true);
-    let hue = 0;
-    const step = async () => {
+  if(rainbowActive) { stopRainbow(); return; }
+  const ip = document.getElementById("ipInput").value; if(!ip) return;
+  rainbowActive = true;
+  document.getElementById("btnRainbow").classList.add("active");
+  setPreview(null, true);
+  
+  let hue = 0;
+  
+  const step = async () => {
+    // Break the loop if the user turned off the rainbow
+    if (!rainbowActive) return; 
+
+    try {
       await fetch(`/api/led?ip=${ip}&state=color&hex=${hueToHex(hue)}`, {method:'POST'});
-      hue = (hue + 30) % 360;
-    };
-    step();
-    rainbowInt = setInterval(step, 400);
-  }
+    } catch (e) {
+      console.error("LED fetch failed", e);
+    }
+    
+    // Change by 5 degrees instead of 30 for a smoother color gradient
+    hue = (hue + 10) % 360; 
+    
+    // Wait 50ms before firing the NEXT request, guaranteeing they don't overlap
+    rainbowInt = setTimeout(step, 10); 
+  };
+  
+  step();
+}
 
   // ── GPIO ──────────────────────────────────────────────────────────────────
   function setRelay(id, on) {
@@ -491,6 +538,79 @@ HTML_TEMPLATE = r"""<!DOCTYPE html>
     setRelay("ind-PCC00", false);
     await fetch(`/api/gpio?ip=${document.getElementById("ipInput").value}&state=stop`, {method:'POST'});
   }
+
+  // ── Device Info & Power ───────────────────────────────────────────────────
+  async function fetchMAC() {
+    const ip = document.getElementById("ipInput").value;
+    if(!ip) { alert("Please specify a target IP."); return; }
+    
+    const field = document.getElementById("macField");
+    const btn = document.getElementById("macCopyBtn");
+    field.value = "Fetching...";
+    btn.disabled = true;
+
+    try {
+      const res = await fetch(`/api/mac?ip=${ip}`);
+      const data = await res.json();
+      if(data.value) {
+        field.value = data.value;
+        btn.disabled = false;
+      } else {
+        field.value = data.error || "Failed to fetch MAC";
+      }
+    } catch(e) { field.value = "Error fetching MAC"; }
+  }
+
+  async function fetchATECC() {
+    const ip = document.getElementById("ipInput").value;
+    if(!ip) { alert("Please specify a target IP."); return; }
+    
+    const field = document.getElementById("ateccField");
+    const btn = document.getElementById("ateccCopyBtn");
+    field.value = "Fetching...";
+    btn.disabled = true;
+
+    try {
+      const res = await fetch(`/api/atecc?ip=${ip}`);
+      const data = await res.json();
+      if(data.value) {
+        field.value = data.value;
+        btn.disabled = false;
+      } else {
+        field.value = data.error || "Failed to fetch ATECC";
+      }
+    } catch(e) { field.value = "Error fetching ATECC"; }
+  }
+
+  function clearField(fieldId, btnId) {
+    document.getElementById(fieldId).value = "";
+    document.getElementById(btnId).disabled = true;
+    document.getElementById(btnId).textContent = "Copy";
+  }
+
+  async function copyField(fieldId, btnId) {
+    const val = document.getElementById(fieldId).value;
+    if(!val) return;
+    try {
+      await navigator.clipboard.writeText(val);
+      const btn = document.getElementById(btnId);
+      btn.textContent = "Copied!";
+      setTimeout(() => btn.textContent = "Copy", 2000);
+    } catch(e) { console.error("Clipboard copy failed", e); }
+  }
+
+  async function shutdownDevice() {
+    const ip = document.getElementById("ipInput").value;
+    if(!ip) {
+      alert("Please specify a target IP to shut down.");
+      return;
+    }
+    if(confirm(`Are you sure you want to shut down the device at ${ip}?`)) {
+      await fetch(`/api/shutdown?ip=${ip}`, {method:'POST'});
+      stopCamera();
+      if(!document.getElementById("gpioStart").disabled) stopGPIO();
+    }
+  }
 </script>
 </body>
 </html>
@@ -512,6 +632,44 @@ def get_fps(): return jsonify({"fps": current_fps})
 
 @app.route("/dmesg")
 def get_dmesg(): return jsonify(fetch_dmesg(request.args.get("ip", "")))
+
+@app.route("/api/mac")
+def get_mac():
+    ip = request.args.get("ip")
+    if not ip:
+        return jsonify({"error": "No IP provided"}), 400
+    
+    # Using python raw string literal to strictly pass the required awk escaping syntax over SSH
+    cmd_str = r"""hexdump -s 68 -n 6 -e '1/1 "%02x "' /sys/bus/i2c/devices/0-0050/eeprom | awk '{for(i=NF; i>0; i--) printf "%s%s", $i, (i==1?ORS:":")}'"""
+    cmd = ["ssh", *SSH_OPTS, f"root@{ip}", cmd_str]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        if result.returncode == 0 and result.stdout.strip():
+            return jsonify({"value": result.stdout.strip()})
+        err = result.stderr.strip() or "No output returned from device."
+        return jsonify({"error": err}), 500
+    except subprocess.TimeoutExpired:
+        return jsonify({"error": "SSH command timed out."}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/atecc")
+def get_atecc():
+    ip = request.args.get("ip")
+    if not ip:
+        return jsonify({"error": "No IP provided"}), 400
+    
+    cmd = ["ssh", *SSH_OPTS, f"root@{ip}", 'atecc -b 1 -s 106 -c "serial"']
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+        if result.returncode == 0 and result.stdout.strip():
+            return jsonify({"value": result.stdout.strip()})
+        err = result.stderr.strip() or "No output returned from device."
+        return jsonify({"error": err}), 500
+    except subprocess.TimeoutExpired:
+        return jsonify({"error": "SSH command timed out."}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/led", methods=['POST'])
 def toggle_led():
@@ -605,6 +763,18 @@ def toggle_gpio():
         subprocess.run(["ssh", *SSH_OPTS, f"root@{ip}", "killall -9 gpioset"],
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return jsonify({"status": "ok"})
+
+@app.route("/api/shutdown", methods=['POST'])
+def shutdown_device():
+    ip = request.args.get("ip", "")
+    if not ip:
+        return jsonify({"error": "No IP provided"}), 400
+    
+    # We use Popen instead of run so Flask doesn't wait/hang when the SSH connection is terminated by the shutdown
+    subprocess.Popen(["ssh", *SSH_OPTS, f"root@{ip}", "shutdown -h now"], 
+                     stdout=subprocess.DEVNULL, 
+                     stderr=subprocess.DEVNULL)
+    return jsonify({"status": "shutdown sequence initiated"})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, threaded=True)
